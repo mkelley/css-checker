@@ -1,0 +1,65 @@
+#!/bin/bash -eu
+
+if [ "$1" == "" ]; then
+  echo "Usage: create_env working_directory"
+  exit 1
+fi
+
+if [ ! -e $1 ]; then
+  mkdir -p $1
+fi
+
+pushd .
+
+cd $1
+
+python3 -m venv .venv --prompt="css-checker"
+source .venv/bin/activate
+pip install -U pip setuptools wheel
+
+
+# install s2geometry library
+S2HASH=a4dddf40647c68cd0104eafc31e9c8fb247a6308
+
+mkdir -p .venv/src
+pushd .
+cd .venv/src
+
+test ! -e ${S2HASH}.tar.gz && wget https://github.com/google/s2geometry/archive/${S2HASH}.tar.gz
+test ! -e s2geometry-${S2HASH} && tar xzf ${S2HASH}.tar.gz
+
+# apply patch so we can build without google's testing library
+test ! -e 78.patch && wget https://patch-diff.githubusercontent.com/raw/google/s2geometry/pull/78.patch
+cd s2geometry-${S2HASH}
+test ! -e CMakeLists.txt.orig && patch -i ../78.patch
+
+mkdir -p build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=$VIRTUAL_ENV ..
+make
+make install
+
+popd
+
+# install python libraries
+LDFLAGS="-L$VIRTUAL_ENV/lib -Wl,-rpath=$VIRTUAL_ENV/lib" pip install \
+  -e git+https://git@github.com/NASA-Planetary-Science/sbpy.git#egg=sbpy \
+  -e git+https://git@github.com/Small-Bodies-Node/catch.git@v2#egg=sbsearch \
+  psycopg2-binary
+
+popd
+
+if [ ! -e css-checker.config ]; then
+  cat >css-checker.config <<EOF
+{
+  "database": "postgresql://user:password@host/database",
+  "log": "$1/css-checker.log",
+  "arc_limit": 0.17,
+  "time_limit": 365,
+  "debug": false
+}
+EOF
+  echo "Example configuration file created: $1/css-checker.config"
+fi
+
+echo 'Working directory and virtual environment are ready.'

@@ -1,6 +1,22 @@
 Find comets and asteroids in Catalina Sky Survey data.
 ------------------------------------------------------
 
+
+Requirements
+------------
+* sbsearch
+
+
+Setup
+-----
+
+1. Create database, e.g., `createdb css_checker`
+
+2. Give the maintenance user read/write/create permissions, e.g., `psql -c "GRANT ALL PRIVILEGES ON DATABASE css_checker TO user;"`
+
+3. Create working directory and Python virtual environment: `bash scripts/create_env`.
+
+
 License
 -------
 
